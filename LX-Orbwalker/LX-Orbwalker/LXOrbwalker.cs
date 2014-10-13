@@ -206,6 +206,8 @@ namespace LX_Orbwalker
 		{
 			if (!_movement)
 				return false;
+			if (Menu.Item("lxOrbwalker_Misc_AllMovementDisabled").GetValue<bool>())
+				return false;
 			if (CurrentMode == Mode.Combo && !Menu.Item("Combo_move").GetValue<bool>())
 				return false;
 			if(CurrentMode == Mode.Harass && !Menu.Item("Harass_move").GetValue<bool>())
@@ -214,14 +216,14 @@ namespace LX_Orbwalker
 				return false;
 			if(CurrentMode == Mode.LaneFreeze && !Menu.Item("LaneFreeze_move").GetValue<bool>())
 				return false;
-			if(CurrentMode == Mode.Lasthit && !Menu.Item("LastHit_move").GetValue<bool>())
-				return false;
-			return true;
+			return CurrentMode != Mode.Lasthit || Menu.Item("LastHit_move").GetValue<bool>();
 		}
 
 		private static bool IsAllowedToAttack()
 		{
 			if(!_attack)
+				return false;
+			if(Menu.Item("lxOrbwalker_Misc_AllAttackDisabled").GetValue<bool>())
 				return false;
 			if(CurrentMode == Mode.Combo && !Menu.Item("Combo_attack").GetValue<bool>())
 				return false;
