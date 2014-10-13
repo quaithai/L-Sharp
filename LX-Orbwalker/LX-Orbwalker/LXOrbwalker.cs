@@ -152,9 +152,7 @@ namespace LX_Orbwalker
 				FireBeforeAttack(target);
 				if(!_disableNextAttack)
 				{
-					if(!MyHero.IssueOrder(GameObjectOrder.AttackUnit, target))
-						Utility.DelayAction.Add(100, ResetAutoAttackTimer);
-					else if (!(target is Obj_AI_Hero))
+					if (MyHero.IssueOrder(GameObjectOrder.AttackUnit, target))
 						_lastAATick = Environment.TickCount + Game.Ping/2;
 				}
 			}
