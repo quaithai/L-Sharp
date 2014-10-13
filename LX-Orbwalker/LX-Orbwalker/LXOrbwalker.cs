@@ -326,7 +326,7 @@ namespace LX_Orbwalker
 				}
 				if(unit.IsMelee() || unit.BaseSkinName == "Thresh")
 					Utility.DelayAction.Add(
-						(int)(unit.AttackCastDelay * 1000 + Game.Ping * 0.5), () => FireAfterAttack(unit, _lastTarget));
+						(int)(unit.AttackCastDelay * 1000 + Game.Ping * 0.5) + 50, () => FireAfterAttack(unit, _lastTarget));
 			}
 			FireOnAttack(unit, _lastTarget);
 		}
