@@ -10,9 +10,13 @@ namespace LX_Orbwalker
 {
 	public class LXOrbwalker
 	{
+		public LXOrbwalker()
+		{
+			
+		}
 		private static readonly string[] AttackResets = { "dariusnoxiantacticsonh", "fioraflurry", "garenq", "hecarimrapidslash", "jaxempowertwo", "jaycehypercharge", "leonashieldofdaybreak", "luciane", "lucianq", "monkeykingdoubleattack", "mordekaisermaceofspades", "nasusq", "nautiluspiercinggaze", "netherblade", "parley", "poppydevastatingblow", "powerfist", "renektonpreexecute", "rengarq", "shyvanadoubleattack", "sivirw", "takedown", "talonnoxiandiplomacy", "trundletrollsmash", "vaynetumble", "vie", "volibearq", "xenzhaocombotarget", "yorickspectral" };
 		private static readonly string[] NoAttacks = { "jarvanivcataclysmattack", "monkeykingdoubleattack", "shyvanadoubleattack", "shyvanadoubleattackdragon", "zyragraspingplantattack", "zyragraspingplantattack2", "zyragraspingplantattackfire", "zyragraspingplantattack2fire" };
-		private static readonly string[] Attacks = { "caitlynheadshotmissile", "frostarrow", "garenslash2", "kennenmegaproc", "lucianpassiveattack", "masteryidoublestrike", "quinnwenhanced", "renektonexecute", "renektonsuperexecute", "rengarnewpassivebuffdash", "trundleq", "xenzhaothrust", "xenzhaothrust2", "xenzhaothrust3" };
+		private static readonly string[] Attacks = { "caitlynheadshotmissile", "frostarrow", "garenslash2", "kennenmegaproc", "lucianpassiveattack", "masteryidoublestrike", "quinnwenhanced", "renektonexecute", "renektonsuperexecute", "rengarnewpassivebuffdash", "trundleq", "xenzhaothrust","viktorqbuff", "xenzhaothrust2", "xenzhaothrust3" };
 		
 
 		public static Menu Menu;
@@ -164,7 +168,7 @@ namespace LX_Orbwalker
 			{
 				_movementPrediction.Delay = MyHero .BasicAttack.SpellCastTime;
 				_movementPrediction.Speed = MyHero.BasicAttack.MissileSpeed;
-				MoveTo(_movementPrediction.GetPrediction(target).UnitPosition, 1);
+				MoveTo(_movementPrediction.GetPrediction(target).UnitPosition);
 			}
 			else
 				MoveTo(goalPosition);
