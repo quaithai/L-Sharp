@@ -504,6 +504,11 @@ namespace LX_Orbwalker
 			Menu.Item("lxOrbwalker_Misc_ExtraWindUp").SetValue(windUp < 200 ? new Slider(windUp, 200, 0) : new Slider(200, 200, 0));
 		}
 
+		public static int GetCurrentWindupTime()
+		{
+			return Menu.Item("lxOrbwalker_Misc_ExtraWindUp").GetValue<Slider>().Value;
+		}
+
 		public void EnableDrawing()
 		{
 			_drawing = true;
