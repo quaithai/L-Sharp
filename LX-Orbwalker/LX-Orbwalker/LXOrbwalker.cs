@@ -131,6 +131,22 @@ namespace LX_Orbwalker
 			Drawing.OnDraw += OnDraw;
 			Game.OnGameUpdate += OnUpdate;
 			Obj_AI_Base.OnProcessSpellCast += OnProcessSpell;
+			GameObject.OnCreate += Obj_SpellMissile_OnCreate;
+		}
+
+		private static void Obj_SpellMissile_OnCreate(GameObject sender, EventArgs args)
+		{
+			if(sender.IsMe)
+			{
+				var obj = (Obj_AI_Hero)sender;
+				if(obj.IsMelee())
+					return;
+			}
+			if(!(sender is Obj_SpellMissile) || !sender.IsValid)
+				return;
+			var missile = (Obj_SpellMissile)sender;
+			if(missile.SpellCaster is Obj_AI_Hero && missile.SpellCaster.IsValid && IsAutoAttack(missile.SData.Name))
+				FireAfterAttack(missile.SpellCaster, _lastTarget);
 		}
 
 		private static void OnUpdate(EventArgs args)
@@ -319,7 +335,7 @@ namespace LX_Orbwalker
 					FireOnTargetSwitch((Obj_AI_Base)spell.Target);
 					_lastTarget = (Obj_AI_Base)spell.Target;
 				}
-				if(unit.IsMelee() || unit.BaseSkinName == "Thresh")
+				if(unit.IsMelee())
 					Utility.DelayAction.Add(
 						(int)(unit.AttackCastDelay * 1000 + Game.Ping * 0.5) + 50, () => FireAfterAttack(unit, _lastTarget));
 			}
