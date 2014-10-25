@@ -126,12 +126,12 @@ namespace LX_Orbwalker
 				menuModes.AddSubMenu(modeFlee);
 			}
 			menu.AddSubMenu(menuModes);
-			
+			menu.AddItem(new MenuItem("lx_info", "Created by Lexxes"));
 
 			Drawing.OnDraw += OnDraw;
 			Game.OnGameUpdate += OnUpdate;
 			Obj_AI_Base.OnProcessSpellCast += OnProcessSpell;
-			GameObject.OnCreate += Obj_SpellMissile_OnCreate;
+		GameObject.OnCreate += Obj_SpellMissile_OnCreate;
 		}
 
 		private static void Obj_SpellMissile_OnCreate(GameObject sender, EventArgs args)
@@ -151,6 +151,7 @@ namespace LX_Orbwalker
 
 		private static void OnUpdate(EventArgs args)
 		{
+
 			CheckAutoWindUp();
 			if(CurrentMode == Mode.None || MyHero.IsChannelingImportantSpell() || MenuGUI.IsChatOpen)
 				return;
@@ -158,6 +159,85 @@ namespace LX_Orbwalker
 				return;
 			var target = GetPossibleTarget();
 			Orbwalk(Game.CursorPos, target);
+		}
+
+		private static void OnDraw(EventArgs args)
+		{
+			foreach (var obj in ObjectManager.Get< Obj_Building  >().Where(obj => obj.Position.Distance( MyHero.Position) <= 1000 && ( obj.Name.StartsWith("Barracks_") ||obj.Name.StartsWith("HQ_") )))
+			{
+				Utility.DrawCircle(obj.Position, obj.BoundingRadius,Color.BlueViolet);
+				Drawing.DrawText(Drawing.WorldToScreen(obj.Position).X, Drawing.WorldToScreen(obj.Position).Y,Color.BlueViolet,obj.Name);
+				Drawing.DrawText(Drawing.WorldToScreen(obj.Position).X, Drawing.WorldToScreen(obj.Position).Y + 25, Color.BlueViolet, obj.IsTargetable.ToString());
+				//Utility.PrintFloatText(obj,obj.Name,Packet.FloatTextPacket.Special );
+			}
+
+			if(!_drawing)
+				return;
+
+			if(Menu.Item("lxOrbwalker_Draw_AARange").GetValue<Circle>().Active)
+			{
+				Utility.DrawCircle(MyHero.Position, GetAutoAttackRange(), Menu.Item("lxOrbwalker_Draw_AARange").GetValue<Circle>().Color);
+			}
+
+			if(Menu.Item("lxOrbwalker_Draw_AARange_Enemy").GetValue<Circle>().Active ||
+				Menu.Item("lxOrbwalker_Draw_hitbox").GetValue<Circle>().Active)
+			{
+				foreach(var enemy in AllEnemys.Where(enemy => enemy.IsValidTarget(1500)))
+				{
+					if(Menu.Item("lxOrbwalker_Draw_AARange_Enemy").GetValue<Circle>().Active)
+						Utility.DrawCircle(enemy.Position, GetAutoAttackRange(enemy, MyHero), Menu.Item("lxOrbwalker_Draw_AARange_Enemy").GetValue<Circle>().Color);
+					if(Menu.Item("lxOrbwalker_Draw_hitbox").GetValue<Circle>().Active)
+						Utility.DrawCircle(enemy.Position, enemy.BoundingRadius, Menu.Item("lxOrbwalker_Draw_hitbox").GetValue<Circle>().Color);
+				}
+			}
+
+			if(Menu.Item("lxOrbwalker_Draw_AARange_Enemy").GetValue<Circle>().Active)
+			{
+				foreach(var enemy in AllEnemys.Where(enemy => enemy.IsValidTarget(1500)))
+				{
+					Utility.DrawCircle(enemy.Position, GetAutoAttackRange(enemy, MyHero), Menu.Item("lxOrbwalker_Draw_AARange_Enemy").GetValue<Circle>().Color);
+
+				}
+			}
+
+			if(Menu.Item("lxOrbwalker_Draw_Holdzone").GetValue<Circle>().Active)
+			{
+				Utility.DrawCircle(MyHero.Position, Menu.Item("lxOrbwalker_Misc_Holdzone").GetValue<Slider>().Value, Menu.Item("lxOrbwalker_Draw_Holdzone").GetValue<Circle>().Color);
+			}
+
+			if(Menu.Item("lxOrbwalker_Draw_MinionHPBar").GetValue<Circle>().Active ||
+				Menu.Item("lxOrbwalker_Draw_Lasthit").GetValue<Circle>().Active ||
+				Menu.Item("lxOrbwalker_Draw_nearKill").GetValue<Circle>().Active)
+			{
+				var minionList = MinionManager.GetMinions(MyHero.Position, GetAutoAttackRange() + 500, MinionTypes.All, MinionTeam.Enemy, MinionOrderTypes.MaxHealth);
+				foreach(var minion in minionList.Where(minion => minion.IsValidTarget(GetAutoAttackRange() + 500)))
+				{
+					var attackToKill = Math.Ceiling(minion.MaxHealth / MyHero.GetAutoAttackDamage(minion, true));
+					var hpBarPosition = minion.HPBarPosition;
+					var barWidth = minion.IsMelee() ? 75 : 80;
+					if(minion.HasBuff("turretshield", true))
+						barWidth = 70;
+					var barDistance = (float)(barWidth / attackToKill);
+					if(Menu.Item("lxOrbwalker_Draw_MinionHPBar").GetValue<Circle>().Active)
+					{
+						for(var i = 1; i < attackToKill; i++)
+						{
+							var startposition = hpBarPosition.X + 45 + barDistance * i;
+							Drawing.DrawLine(
+								new Vector2(startposition, hpBarPosition.Y + 18),
+								new Vector2(startposition, hpBarPosition.Y + 23),
+								Menu.Item("lxOrbwalker_Draw_MinionHPBar_thickness").GetValue<Slider>().Value,
+								Menu.Item("lxOrbwalker_Draw_MinionHPBar").GetValue<Circle>().Color);
+						}
+					}
+					if(Menu.Item("lxOrbwalker_Draw_Lasthit").GetValue<Circle>().Active &&
+						minion.Health <= MyHero.GetAutoAttackDamage(minion, true))
+						Utility.DrawCircle(minion.Position, minion.BoundingRadius, Menu.Item("lxOrbwalker_Draw_Lasthit").GetValue<Circle>().Color);
+					else if(Menu.Item("lxOrbwalker_Draw_nearKill").GetValue<Circle>().Active &&
+							 minion.Health <= MyHero.GetAutoAttackDamage(minion, true) * 2)
+						Utility.DrawCircle(minion.Position, minion.BoundingRadius, Menu.Item("lxOrbwalker_Draw_nearKill").GetValue<Circle>().Color);
+				}
+			}
 		}
 
 		public static void Orbwalk(Vector3 goalPosition, Obj_AI_Base target)
@@ -168,7 +248,14 @@ namespace LX_Orbwalker
 				FireBeforeAttack(target);
 				if(!_disableNextAttack)
 				{
-					if (MyHero.IssueOrder(GameObjectOrder.AttackUnit, target))
+					if(CurrentMode != Mode.Combo)
+						foreach(var obj in ObjectManager.Get<Obj_Building>().Where(obj => obj.Position.Distance(MyHero.Position) <= GetAutoAttackRange() + obj.BoundingRadius / 2 && obj.IsTargetable && (obj.Name.StartsWith("Barracks_") || obj.Name.StartsWith("HQ_"))))
+						{
+							MyHero.IssueOrder(GameObjectOrder.AttackTo, obj.Position);
+							_lastAATick = Environment.TickCount + Game.Ping / 2;
+							return;
+						}
+					if(MyHero.IssueOrder(GameObjectOrder.AttackUnit, target))
 						_lastAATick = Environment.TickCount + Game.Ping/2;
 				}
 			}
@@ -248,77 +335,6 @@ namespace LX_Orbwalker
 	
 		}
 
-		private static void OnDraw(EventArgs args)
-		{
-			if(!_drawing)
-				return;
-
-			if(Menu.Item("lxOrbwalker_Draw_AARange").GetValue<Circle>().Active)
-			{
-				Utility.DrawCircle(MyHero.Position, GetAutoAttackRange(), Menu.Item("lxOrbwalker_Draw_AARange").GetValue<Circle>().Color);
-			}
-
-			if(Menu.Item("lxOrbwalker_Draw_AARange_Enemy").GetValue<Circle>().Active ||
-				Menu.Item("lxOrbwalker_Draw_hitbox").GetValue<Circle>().Active)
-			{
-				foreach(var enemy in AllEnemys.Where(enemy => enemy.IsValidTarget(1500)))
-				{
-					if(Menu.Item("lxOrbwalker_Draw_AARange_Enemy").GetValue<Circle>().Active)
-						Utility.DrawCircle(enemy.Position, GetAutoAttackRange(enemy, MyHero), Menu.Item("lxOrbwalker_Draw_AARange_Enemy").GetValue<Circle>().Color);
-					if(Menu.Item("lxOrbwalker_Draw_hitbox").GetValue<Circle>().Active)
-						Utility.DrawCircle(enemy.Position, enemy.BoundingRadius, Menu.Item("lxOrbwalker_Draw_hitbox").GetValue<Circle>().Color);
-				}
-			}
-
-			if(Menu.Item("lxOrbwalker_Draw_AARange_Enemy").GetValue<Circle>().Active)
-			{
-				foreach(var enemy in AllEnemys.Where(enemy => enemy.IsValidTarget(1500)))
-				{
-					Utility.DrawCircle(enemy.Position, GetAutoAttackRange(enemy, MyHero), Menu.Item("lxOrbwalker_Draw_AARange_Enemy").GetValue<Circle>().Color);
-
-				}
-			}
-
-			if(Menu.Item("lxOrbwalker_Draw_Holdzone").GetValue<Circle>().Active)
-			{
-				Utility.DrawCircle(MyHero.Position, Menu.Item("lxOrbwalker_Misc_Holdzone").GetValue<Slider>().Value, Menu.Item("lxOrbwalker_Draw_Holdzone").GetValue<Circle>().Color);
-			}
-
-			if(Menu.Item("lxOrbwalker_Draw_MinionHPBar").GetValue<Circle>().Active ||
-				Menu.Item("lxOrbwalker_Draw_Lasthit").GetValue<Circle>().Active ||
-				Menu.Item("lxOrbwalker_Draw_nearKill").GetValue<Circle>().Active)
-			{
-				var minionList = MinionManager.GetMinions(MyHero.Position, GetAutoAttackRange() + 500, MinionTypes.All, MinionTeam.Enemy, MinionOrderTypes.MaxHealth);
-				foreach(var minion in minionList.Where(minion => minion.IsValidTarget(GetAutoAttackRange() + 500)))
-				{
-					var attackToKill = Math.Ceiling(minion.MaxHealth / MyHero.GetAutoAttackDamage(minion, true));
-					var hpBarPosition = minion.HPBarPosition;
-					var barWidth = minion.IsMelee() ? 75 : 80;
-					if(minion.HasBuff("turretshield", true))
-						barWidth = 70;
-					var barDistance = (float)(barWidth / attackToKill);
-					if(Menu.Item("lxOrbwalker_Draw_MinionHPBar").GetValue<Circle>().Active)
-					{
-						for(var i = 1; i < attackToKill; i++)
-						{
-							var startposition = hpBarPosition.X + 45 + barDistance * i;
-							Drawing.DrawLine(
-								new Vector2(startposition, hpBarPosition.Y + 18),
-								new Vector2(startposition, hpBarPosition.Y + 23),
-								Menu.Item("lxOrbwalker_Draw_MinionHPBar_thickness").GetValue<Slider>().Value,
-								Menu.Item("lxOrbwalker_Draw_MinionHPBar").GetValue<Circle>().Color);
-						}
-					}
-					if(Menu.Item("lxOrbwalker_Draw_Lasthit").GetValue<Circle>().Active &&
-						minion.Health <= MyHero.GetAutoAttackDamage(minion, true))
-						Utility.DrawCircle(minion.Position, minion.BoundingRadius, Menu.Item("lxOrbwalker_Draw_Lasthit").GetValue<Circle>().Color);
-					else if(Menu.Item("lxOrbwalker_Draw_nearKill").GetValue<Circle>().Active &&
-							 minion.Health <= MyHero.GetAutoAttackDamage(minion, true) * 2)
-						Utility.DrawCircle(minion.Position, minion.BoundingRadius, Menu.Item("lxOrbwalker_Draw_nearKill").GetValue<Circle>().Color);
-				}
-			}
-		}
-
 		private static void OnProcessSpell(Obj_AI_Base unit, GameObjectProcessSpellCastEventArgs spell)
 		{
 			if(IsAutoAttackReset(spell.SData.Name) && unit.IsMe)
@@ -342,9 +358,15 @@ namespace LX_Orbwalker
 			FireOnAttack(unit, _lastTarget);
 		}
 
-
 		public static Obj_AI_Base GetPossibleTarget()
 		{
+			if(ObjectManager.Get<Obj_Building>()
+						.Any(
+							obj =>
+								obj.Position.Distance(MyHero.Position) <= GetAutoAttackRange() + obj.BoundingRadius / 2 && obj.IsTargetable &&
+								 obj.Name.StartsWith("HQ_")))
+				return null;
+
 			if (ForcedTarget != null)
 			{
 				if (InAutoAttackRange(ForcedTarget))
@@ -383,6 +405,15 @@ namespace LX_Orbwalker
 					var turret in
 						ObjectManager.Get<Obj_AI_Turret>().Where(turret => turret.IsValidTarget(GetAutoAttackRange(MyHero, turret))))
 					return turret;
+				if (
+					ObjectManager.Get<Obj_Building>()
+						.Any(
+							obj =>
+								obj.Position.Distance(MyHero.Position) <= GetAutoAttackRange() + obj.BoundingRadius/2 && obj.IsTargetable &&
+								(obj.Name.StartsWith("Barracks_") || obj.Name.StartsWith("HQ_"))))
+					return null;
+				// inhib
+				// nexus 
 			}
 
 			if(CurrentMode != Mode.Lasthit )
@@ -489,7 +520,7 @@ namespace LX_Orbwalker
 			foreach(var enemy in AllEnemys.Where(hero => hero.IsValidTarget() && InAutoAttackRange( hero)))
 			{
 				var killHits = CountKillhits(enemy);
-				if (killableEnemy != null && !(killHits < hitsToKill)) 
+				if(killableEnemy != null && (!(killHits < hitsToKill) || enemy.HasBuffOfType(BuffType.Invulnerability)))
 					continue;
 				killableEnemy = enemy;
 				hitsToKill = killHits;
@@ -497,7 +528,7 @@ namespace LX_Orbwalker
 			return hitsToKill < 4 ? killableEnemy : SimpleTs.GetTarget(GetAutoAttackRange() + 100, SimpleTs.DamageType.Physical);
 		}
 
-		private static double CountKillhits(Obj_AI_Hero enemy)
+		private static double CountKillhits(Obj_AI_Base enemy)
 		{
 			return enemy.Health/MyHero.GetAutoAttackDamage(enemy);
 		}
@@ -525,12 +556,12 @@ namespace LX_Orbwalker
 			return Menu.Item("lxOrbwalker_Misc_ExtraWindUp").GetValue<Slider>().Value;
 		}
 
-		public void EnableDrawing()
+		public static  void EnableDrawing()
 		{
 			_drawing = true;
 		}
 
-		public void DisableDrawing()
+		public static void DisableDrawing()
 		{
 			_drawing = false;
 		}
