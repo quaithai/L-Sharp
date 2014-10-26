@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using LeagueSharp;
 using LeagueSharp.Common;
 using SharpDX;
@@ -163,14 +164,6 @@ namespace LX_Orbwalker
 
 		private static void OnDraw(EventArgs args)
 		{
-			foreach (var obj in ObjectManager.Get< Obj_Building  >().Where(obj => obj.Position.Distance( MyHero.Position) <= 1000 && ( obj.Name.StartsWith("Barracks_") ||obj.Name.StartsWith("HQ_") )))
-			{
-				Utility.DrawCircle(obj.Position, obj.BoundingRadius,Color.BlueViolet);
-				Drawing.DrawText(Drawing.WorldToScreen(obj.Position).X, Drawing.WorldToScreen(obj.Position).Y,Color.BlueViolet,obj.Name);
-				Drawing.DrawText(Drawing.WorldToScreen(obj.Position).X, Drawing.WorldToScreen(obj.Position).Y + 25, Color.BlueViolet, obj.IsTargetable.ToString());
-				//Utility.PrintFloatText(obj,obj.Name,Packet.FloatTextPacket.Special );
-			}
-
 			if(!_drawing)
 				return;
 
@@ -358,6 +351,26 @@ namespace LX_Orbwalker
 			FireOnAttack(unit, _lastTarget);
 		}
 
+		public static double GetAzirAASandwarriorDamage(Obj_AI_Base unit)
+		{
+			var damagelist = new List<int> { 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 110, 120, 130, 140, 150, 160, 170 };
+			var dmg = damagelist[MyHero.Level - 1] + (MyHero.BaseAbilityDamage * 0.7);
+			if(
+				ObjectManager.Get<Obj_AI_Minion>()
+					.Count(
+						obj =>
+							obj.Name == "AzirSoldier" && obj.IsAlly && obj.BoundingRadius < 66 && obj.AttackSpeedMod > 1 &&
+							obj.Distance(unit) < 350) == 2)
+				return MyHero.CalcDamage(unit, Damage.DamageType.Magical, dmg) +
+					   (MyHero.CalcDamage(unit, Damage.DamageType.Magical, dmg) * 0.25);
+			return MyHero.CalcDamage(unit, Damage.DamageType.Magical, dmg);
+		}
+
+		public static bool InSoldierAttackRange(Obj_AI_Base target)
+		{
+			return target != null && ObjectManager.Get<Obj_AI_Minion>().Any(obj => obj.Name == "AzirSoldier" && obj.IsAlly && obj.BoundingRadius < 66 && obj.AttackSpeedMod > 1 && obj.Distance(target) < 380);
+		}
+
 		public static Obj_AI_Base GetPossibleTarget()
 		{
 			if(ObjectManager.Get<Obj_Building>()
@@ -386,6 +399,21 @@ namespace LX_Orbwalker
 
 			if(CurrentMode == Mode.Harass || CurrentMode == Mode.Lasthit || CurrentMode == Mode.LaneClear || CurrentMode == Mode.LaneFreeze )
 			{
+				if(MyHero.ChampionName == "Azir")
+				{
+					foreach(
+					var minion in
+						from minion in
+							ObjectManager.Get<Obj_AI_Minion>().Where(minion => minion.IsValidTarget() && InSoldierAttackRange(minion))
+						let t = (int)(MyHero.AttackCastDelay * 1000) - 100 + Game.Ping / 2 +
+								1000 * (int)MyHero.Distance(minion) / (int)MyProjectileSpeed()
+						let predHealth = HealthPrediction.GetHealthPrediction(minion, t, FarmDelay(-125))
+						where minion.Team != GameObjectTeam.Neutral && predHealth > 0 &&
+							  predHealth <= GetAzirAASandwarriorDamage(minion)
+						select minion)
+						return minion;
+				}
+
 				foreach (
 					var minion in
 						from minion in
@@ -412,8 +440,6 @@ namespace LX_Orbwalker
 								obj.Position.Distance(MyHero.Position) <= GetAutoAttackRange() + obj.BoundingRadius/2 && obj.IsTargetable &&
 								(obj.Name.StartsWith("Barracks_") || obj.Name.StartsWith("HQ_"))))
 					return null;
-				// inhib
-				// nexus 
 			}
 
 			if(CurrentMode != Mode.Lasthit )
@@ -426,9 +452,26 @@ namespace LX_Orbwalker
 			float[] maxhealth;
 			if(CurrentMode == Mode.LaneClear || CurrentMode == Mode.Harass || CurrentMode == Mode.LaneFreeze)
 			{
+				if (MyHero.ChampionName == "Azir")
+				{
+					maxhealth = new float[] {0};
+					var maxhealth1 = maxhealth;
+					foreach (
+						var minion in
+							ObjectManager.Get<Obj_AI_Minion>()
+								.Where(minion => InSoldierAttackRange(minion) && minion.IsValidTarget() && minion.Team == GameObjectTeam.Neutral)
+								.Where(minion => minion.MaxHealth >= maxhealth1[0] || Math.Abs(maxhealth1[0] - float.MaxValue) < float.Epsilon))
+					{
+						tempTarget = minion;
+						maxhealth[0] = minion.MaxHealth;
+					}
+					if (tempTarget != null)
+						return tempTarget;
+				}
+
 				maxhealth = new float[] { 0 };
-				var maxhealth1 = maxhealth;
-				foreach(var minion in ObjectManager.Get<Obj_AI_Minion>().Where(minion => minion.IsValidTarget(GetAutoAttackRange(MyHero, minion)) && minion.Team == GameObjectTeam.Neutral).Where(minion => minion.MaxHealth >= maxhealth1[0] || Math.Abs(maxhealth1[0] - float.MaxValue) < float.Epsilon))
+				var maxhealth2 = maxhealth;
+				foreach(var minion in ObjectManager.Get<Obj_AI_Minion>().Where(minion => minion.IsValidTarget(GetAutoAttackRange(MyHero, minion)) && minion.Team == GameObjectTeam.Neutral).Where(minion => minion.MaxHealth >= maxhealth2[0] || Math.Abs(maxhealth2[0] - float.MaxValue) < float.Epsilon))
 				{
 					tempTarget = minion;
 					maxhealth[0] = minion.MaxHealth;
@@ -437,8 +480,12 @@ namespace LX_Orbwalker
 					return tempTarget;
 			}
 
-			if(CurrentMode != Mode.LaneClear || ShouldWait())
+			if (CurrentMode != Mode.LaneClear || ShouldWait())
+			{
+				ResetAutoAttackTimer();
 				return null;
+			}
+
 			maxhealth = new float[] { 0 };
 			foreach(var minion in from minion in ObjectManager.Get<Obj_AI_Minion>()
 			   .Where(minion => minion.IsValidTarget(GetAutoAttackRange(MyHero, minion)))
@@ -452,13 +499,32 @@ namespace LX_Orbwalker
 				tempTarget = minion;
 				maxhealth[0] = minion.MaxHealth;
 			}
-			return tempTarget;
+			if(tempTarget != null)
+				return tempTarget;
+
+			if(MyHero.ChampionName == "Azir")
+			{
+				maxhealth = new float[] { 0 };
+				foreach(var minion in from minion in ObjectManager.Get<Obj_AI_Minion>()
+				   .Where(minion => minion.IsValidTarget() && InSoldierAttackRange(minion))
+									  let predHealth = HealthPrediction.LaneClearHealthPrediction(minion, (int)((MyHero.AttackDelay * 1000) * LaneClearWaitTimeMod), FarmDelay(-125))
+									  where predHealth >=
+											2 * GetAzirAASandwarriorDamage(minion) ||
+											Math.Abs(predHealth - minion.Health) < float.Epsilon
+									  where minion.Health >= maxhealth[0] || Math.Abs(maxhealth[0] - float.MaxValue) < float.Epsilon
+									  select minion)
+				{
+					tempTarget = minion;
+					maxhealth[0] = minion.MaxHealth;
+				}
+				return tempTarget;
+			}
+			return null;
 		}
 
 		private static bool ShouldWait()
 		{
-			return
-			ObjectManager.Get<Obj_AI_Minion>()
+			return ObjectManager.Get<Obj_AI_Minion>()
 			.Any(
 			minion =>
 			minion.IsValidTarget() && minion.Team != GameObjectTeam.Neutral &&
@@ -505,9 +571,9 @@ namespace LX_Orbwalker
 			return (MyHero.CombatType == GameObjectCombatType.Melee) ? float.MaxValue : MyHero.BasicAttack.MissileSpeed;
 		}
 
-		private static int FarmDelay()
+		private static int FarmDelay(int offset = 0)
 		{
-			var ret = 0;
+			var ret = offset;
 			if (MyHero.ChampionName == "Azir")
 				ret += 125;
 			return Menu.Item("lxOrbwalker_Misc_Farmdelay").GetValue<Slider>().Value + ret;
@@ -517,7 +583,27 @@ namespace LX_Orbwalker
 		{
 			Obj_AI_Hero killableEnemy = null;
 			var hitsToKill = double.MaxValue;
-			foreach(var enemy in AllEnemys.Where(hero => hero.IsValidTarget() && InAutoAttackRange( hero)))
+			if(MyHero.ChampionName == "Azir")
+			{
+				foreach(var enemy in AllEnemys.Where(hero => hero.IsValidTarget() && InSoldierAttackRange(hero)))
+				{
+					var killHits = CountKillhitsAzirSoldier(enemy);
+					if(killableEnemy != null && (!(killHits < hitsToKill) || enemy.HasBuffOfType(BuffType.Invulnerability)))
+						continue;
+					killableEnemy = enemy;
+					hitsToKill = killHits;
+				}
+				if(hitsToKill <= 4)
+					return killableEnemy;
+				Obj_AI_Hero[] mostdmgenemy = {null};
+				foreach (var enemy in AllEnemys.Where(hero => hero.IsValidTarget() && InSoldierAttackRange(hero)).Where(enemy => mostdmgenemy[0] == null || GetAzirAASandwarriorDamage(enemy) > GetAzirAASandwarriorDamage(mostdmgenemy[0])))
+				{
+					mostdmgenemy[0] = enemy;
+				}
+				if(mostdmgenemy[0] != null)
+					return mostdmgenemy[0];
+			}
+			foreach(var enemy in AllEnemys.Where(hero => hero.IsValidTarget() && InAutoAttackRange(hero)))
 			{
 				var killHits = CountKillhits(enemy);
 				if(killableEnemy != null && (!(killHits < hitsToKill) || enemy.HasBuffOfType(BuffType.Invulnerability)))
@@ -525,7 +611,7 @@ namespace LX_Orbwalker
 				killableEnemy = enemy;
 				hitsToKill = killHits;
 			}
-			return hitsToKill < 4 ? killableEnemy : SimpleTs.GetTarget(GetAutoAttackRange() + 100, SimpleTs.DamageType.Physical);
+			return hitsToKill <= 4 ? killableEnemy : SimpleTs.GetTarget(GetAutoAttackRange() + 100, SimpleTs.DamageType.Physical);
 		}
 
 		private static double CountKillhits(Obj_AI_Base enemy)
@@ -533,6 +619,10 @@ namespace LX_Orbwalker
 			return enemy.Health/MyHero.GetAutoAttackDamage(enemy);
 		}
 
+		private static double CountKillhitsAzirSoldier(Obj_AI_Base enemy)
+		{
+			return enemy.Health / GetAzirAASandwarriorDamage( enemy);
+		}
 
 		private static void CheckAutoWindUp()
 		{
