@@ -493,7 +493,7 @@ namespace LX_Orbwalker
 				   .Where(minion => minion.IsValidTarget() && InSoldierAttackRange(minion))
 									  let predHealth = HealthPrediction.LaneClearHealthPrediction(minion, (int)((MyHero.AttackDelay * 1000) * LaneClearWaitTimeMod), FarmDelay(-125))
 									  where predHealth >=
-											2 * GetAzirAASandwarriorDamage(minion) ||
+											GetAzirAASandwarriorDamage(minion) + MyHero.GetAutoAttackDamage(minion, true) ||
 											Math.Abs(predHealth - minion.Health) < float.Epsilon
 									  where minion.Health >= maxhealth[0] || Math.Abs(maxhealth[0] - float.MaxValue) < float.Epsilon
 									  select minion)
