@@ -486,6 +486,25 @@ namespace LX_Orbwalker
 				return null;
 			}
 
+			if(MyHero.ChampionName == "Azir")
+			{
+				maxhealth = new float[] { 0 };
+				foreach(var minion in from minion in ObjectManager.Get<Obj_AI_Minion>()
+				   .Where(minion => minion.IsValidTarget() && InSoldierAttackRange(minion))
+									  let predHealth = HealthPrediction.LaneClearHealthPrediction(minion, (int)((MyHero.AttackDelay * 1000) * LaneClearWaitTimeMod), FarmDelay(-125))
+									  where predHealth >=
+											2 * GetAzirAASandwarriorDamage(minion) ||
+											Math.Abs(predHealth - minion.Health) < float.Epsilon
+									  where minion.Health >= maxhealth[0] || Math.Abs(maxhealth[0] - float.MaxValue) < float.Epsilon
+									  select minion)
+				{
+					tempTarget = minion;
+					maxhealth[0] = minion.MaxHealth;
+				}
+				if(tempTarget != null)
+					return tempTarget;
+			}
+
 			maxhealth = new float[] { 0 };
 			foreach(var minion in from minion in ObjectManager.Get<Obj_AI_Minion>()
 			   .Where(minion => minion.IsValidTarget(GetAutoAttackRange(MyHero, minion)))
@@ -502,23 +521,6 @@ namespace LX_Orbwalker
 			if(tempTarget != null)
 				return tempTarget;
 
-			if(MyHero.ChampionName == "Azir")
-			{
-				maxhealth = new float[] { 0 };
-				foreach(var minion in from minion in ObjectManager.Get<Obj_AI_Minion>()
-				   .Where(minion => minion.IsValidTarget() && InSoldierAttackRange(minion))
-									  let predHealth = HealthPrediction.LaneClearHealthPrediction(minion, (int)((MyHero.AttackDelay * 1000) * LaneClearWaitTimeMod), FarmDelay(-125))
-									  where predHealth >=
-											2 * GetAzirAASandwarriorDamage(minion) ||
-											Math.Abs(predHealth - minion.Health) < float.Epsilon
-									  where minion.Health >= maxhealth[0] || Math.Abs(maxhealth[0] - float.MaxValue) < float.Epsilon
-									  select minion)
-				{
-					tempTarget = minion;
-					maxhealth[0] = minion.MaxHealth;
-				}
-				return tempTarget;
-			}
 			return null;
 		}
 
@@ -614,12 +616,12 @@ namespace LX_Orbwalker
 			return hitsToKill <= 4 ? killableEnemy : SimpleTs.GetTarget(GetAutoAttackRange() + 100, SimpleTs.DamageType.Physical);
 		}
 
-		private static double CountKillhits(Obj_AI_Base enemy)
+		public static double CountKillhits(Obj_AI_Base enemy)
 		{
 			return enemy.Health/MyHero.GetAutoAttackDamage(enemy);
 		}
 
-		private static double CountKillhitsAzirSoldier(Obj_AI_Base enemy)
+		public static double CountKillhitsAzirSoldier(Obj_AI_Base enemy)
 		{
 			return enemy.Health / GetAzirAASandwarriorDamage( enemy);
 		}
