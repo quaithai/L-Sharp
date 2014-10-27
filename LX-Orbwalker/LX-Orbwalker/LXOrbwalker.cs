@@ -58,9 +58,7 @@ namespace LX_Orbwalker
 		public static void AddToMenu(Menu menu)
 		{
 
-			Game.PrintChat(
-				"Imeh banned Me, if i not get unbanned scripts get removed soon. You can say thx to Imeh in Irc or Forum. Seeya Lexxes");
-			_movementPrediction = new Spell(SpellSlot.Unknown, GetAutoAttackRange());
+				_movementPrediction = new Spell(SpellSlot.Unknown, GetAutoAttackRange());
 			_movementPrediction.SetTargetted(MyHero.BasicAttack.SpellCastTime, MyHero.BasicAttack.MissileSpeed);
 
 			Menu = menu;
@@ -135,7 +133,7 @@ namespace LX_Orbwalker
 			Drawing.OnDraw += OnDraw;
 			Game.OnGameUpdate += OnUpdate;
 			Obj_AI_Base.OnProcessSpellCast += OnProcessSpell;
-		GameObject.OnCreate += Obj_SpellMissile_OnCreate;
+			GameObject.OnCreate += Obj_SpellMissile_OnCreate;
 		}
 
 		private static void Obj_SpellMissile_OnCreate(GameObject sender, EventArgs args)
