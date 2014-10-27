@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
+using System.Runtime.Remoting.Messaging;
 using LeagueSharp;
 using LeagueSharp.Common;
 using SharpDX;
@@ -57,6 +57,9 @@ namespace LX_Orbwalker
 
 		public static void AddToMenu(Menu menu)
 		{
+
+			Game.PrintChat(
+				"Imeh banned Me, if i not get unbanned scripts get removed soon. You can say thx to Imeh in Irc or Forum. Seeya Lexxes");
 			_movementPrediction = new Spell(SpellSlot.Unknown, GetAutoAttackRange());
 			_movementPrediction.SetTargetted(MyHero.BasicAttack.SpellCastTime, MyHero.BasicAttack.MissileSpeed);
 
@@ -167,10 +170,9 @@ namespace LX_Orbwalker
 			if(!_drawing)
 				return;
 
-			if(Menu.Item("lxOrbwalker_Draw_AARange").GetValue<Circle>().Active)
-			{
-				Utility.DrawCircle(MyHero.Position, GetAutoAttackRange(), Menu.Item("lxOrbwalker_Draw_AARange").GetValue<Circle>().Color);
-			}
+			if (Menu.Item("lxOrbwalker_Draw_AARange").GetValue<Circle>().Active)
+				Utility.DrawCircle(MyHero.Position, GetAutoAttackRange(),
+					Menu.Item("lxOrbwalker_Draw_AARange").GetValue<Circle>().Color);
 
 			if(Menu.Item("lxOrbwalker_Draw_AARange_Enemy").GetValue<Circle>().Active ||
 				Menu.Item("lxOrbwalker_Draw_hitbox").GetValue<Circle>().Active)
@@ -242,14 +244,28 @@ namespace LX_Orbwalker
 				if(!_disableNextAttack)
 				{
 					if(CurrentMode != Mode.Combo)
-						foreach(var obj in ObjectManager.Get<Obj_Building>().Where(obj => obj.Position.Distance(MyHero.Position) <= GetAutoAttackRange() + obj.BoundingRadius / 2 && obj.IsTargetable && (obj.Name.StartsWith("Barracks_") || obj.Name.StartsWith("HQ_"))))
+					{
+
+						foreach(
+							var obj in
+								ObjectManager.Get<Obj_Building>()
+									.Where(
+										obj =>
+											obj.Position.Distance(MyHero.Position) <= GetAutoAttackRange() + obj.BoundingRadius / 2 && obj.IsTargetable &&
+											(obj.Name.StartsWith("Barracks_") || obj.Name.StartsWith("HQ_"))))
 						{
 							MyHero.IssueOrder(GameObjectOrder.AttackTo, obj.Position);
 							_lastAATick = Environment.TickCount + Game.Ping / 2;
 							return;
 						}
-					if(MyHero.IssueOrder(GameObjectOrder.AttackUnit, target))
-						_lastAATick = Environment.TickCount + Game.Ping/2;
+					}
+					if(!(CurrentMode == Mode.Harass && !Menu.Item("Harass_Lasthit").GetValue<bool>() && target.IsMinion))
+					{
+						if(MyHero.IssueOrder(GameObjectOrder.AttackUnit, target))
+							_lastAATick = Environment.TickCount + Game.Ping / 2;
+
+					}
+
 				}
 			}
 			if(!CanMove() || !IsAllowedToMove())
@@ -489,13 +505,14 @@ namespace LX_Orbwalker
 			if(MyHero.ChampionName == "Azir")
 			{
 				maxhealth = new float[] { 0 };
+				var maxhealth1 = maxhealth;
 				foreach(var minion in from minion in ObjectManager.Get<Obj_AI_Minion>()
 				   .Where(minion => minion.IsValidTarget() && InSoldierAttackRange(minion))
 									  let predHealth = HealthPrediction.LaneClearHealthPrediction(minion, (int)((MyHero.AttackDelay * 1000) * LaneClearWaitTimeMod), FarmDelay(-125))
 									  where predHealth >=
 											GetAzirAASandwarriorDamage(minion) + MyHero.GetAutoAttackDamage(minion, true) ||
 											Math.Abs(predHealth - minion.Health) < float.Epsilon
-									  where minion.Health >= maxhealth[0] || Math.Abs(maxhealth[0] - float.MaxValue) < float.Epsilon
+									  where minion.Health >= maxhealth1[0] || Math.Abs(maxhealth1[0] - float.MaxValue) < float.Epsilon
 									  select minion)
 				{
 					tempTarget = minion;
