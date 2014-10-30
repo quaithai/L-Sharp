@@ -482,7 +482,7 @@ namespace LX_Orbwalker
 
 			if (CurrentMode != Mode.LaneClear || ShouldWait())
 			{
-				ResetAutoAttackTimer();
+				//ResetAutoAttackTimer();
 				return null;
 			}
 
